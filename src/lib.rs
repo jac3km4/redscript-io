@@ -10,9 +10,9 @@ const ENDIANESS: LittleEndian = byte::LE;
 
 pub use bundle::{BundleReader, ScriptBundle};
 pub use definition::{
-    Class, ClassFlags, Definition, Enum, EnumMember, Field, FieldFlags, Function, FunctionBody,
-    FunctionFlags, Local, LocalFlags, Parameter, ParameterFlags, Property, SourceFile,
-    SourceReference, Type, TypeKind, Visibility,
+    Class, ClassFlags, CodeIter, Definition, Enum, EnumMember, Field, FieldFlags, Function,
+    FunctionBody, FunctionFlags, Local, LocalFlags, Parameter, ParameterFlags, Property,
+    SourceFile, SourceReference, Type, TypeKind, Visibility,
 };
 pub use index::{
     CNameIndex, ClassIndex, EnumIndex, EnumValueIndex, FieldIndex, FunctionIndex, LocalIndex,
