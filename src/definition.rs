@@ -1231,10 +1231,12 @@ pub enum CodeIter<'a> {
     },
     Code {
         instructions: &'a [Instr],
+        offset: u32,
     },
 }
 
 impl<'a> CodeIter<'a> {
+    #[inline]
     fn new(body: &'a FunctionBody<'_>) -> Self {
         match body {
             FunctionBody::Raw { bytes, max_offset } => CodeIter::Raw {
@@ -1242,8 +1244,23 @@ impl<'a> CodeIter<'a> {
                 max_offset: *max_offset,
                 offset: 0,
             },
-            FunctionBody::Code(instructions) => CodeIter::Code { instructions },
+            FunctionBody::Code(instructions) => CodeIter::Code {
+                instructions,
+                offset: 0,
+            },
         }
+    }
+
+    #[inline]
+    pub fn offset(&self) -> u32 {
+        match self {
+            CodeIter::Raw { offset, .. } | CodeIter::Code { offset, .. } => *offset,
+        }
+    }
+
+    #[inline]
+    pub fn with_offsets(mut self) -> impl Iterator<Item = (u32, byte::Result<Instr>)> + 'a {
+        iter::from_fn(move || Some((self.offset(), self.next()?)))
     }
 }
 
@@ -1269,9 +1286,13 @@ impl<'a> Iterator for CodeIter<'a> {
                     Err(err) => Some(Err(err)),
                 }
             }
-            CodeIter::Code { instructions } => {
+            CodeIter::Code {
+                instructions,
+                offset,
+            } => {
                 let (instr, rest) = instructions.split_first()?;
                 *instructions = rest;
+                *offset += u32::from(instr.size());
                 Some(Ok(instr.clone()))
             }
         }
