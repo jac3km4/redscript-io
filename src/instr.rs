@@ -1,3 +1,5 @@
+use std::ops::{Add, Sub};
+
 use byte::{Measure, TryRead, TryWrite};
 
 use crate::util::Prefixed;
@@ -69,34 +71,31 @@ pub enum Instr<Loc = Offset> {
     #[byte(tag = 0x1B)]
     ExternalVar,
     #[byte(tag = 0x1C)]
-    Switch {
-        expr_type: TypeIndex,
-        first_case: Loc,
-    },
+    Switch(Switch<Loc>),
     #[byte(tag = 0x1D)]
-    SwitchLabel { next_case: Loc, body: Loc },
+    SwitchLabel(SwitchLabel<Loc>),
     #[byte(tag = 0x1E)]
     SwitchDefault,
     #[byte(tag = 0x1F)]
-    Jump(Loc),
+    Jump(Jump<Loc>),
     #[byte(tag = 0x20)]
-    JumpIfFalse(Loc),
+    JumpIfFalse(Jump<Loc>),
     #[byte(tag = 0x21)]
-    Skip(Loc),
+    Skip(Jump<Loc>),
     #[byte(tag = 0x22)]
-    Conditional { false_label: Loc, exit: Loc },
+    Conditional(Conditional<Loc>),
     #[byte(tag = 0x23)]
     Construct { arg_count: u8, type_: TypeIndex },
     #[byte(tag = 0x24)]
     InvokeStatic {
-        exit: Loc,
+        exit: Jump<Loc>,
         line: u16,
         function: FunctionIndex,
         flags: u16,
     },
     #[byte(tag = 0x25)]
     InvokeVirtual {
-        exit: Loc,
+        exit: Jump<Loc>,
         line: u16,
         function: CNameIndex,
         flags: u16,
@@ -108,7 +107,7 @@ pub enum Instr<Loc = Offset> {
     #[byte(tag = 0x28)]
     StructField(FieldIndex),
     #[byte(tag = 0x29)]
-    Context(Loc),
+    Context(Jump<Loc>),
     #[byte(tag = 0x2A)]
     Equals(TypeIndex),
     #[byte(tag = 0x2B)]
@@ -348,6 +347,93 @@ impl<L> Instr<L> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, TryRead, TryWrite, Measure)]
+pub struct Jump<Loc> {
+    target: Loc,
+}
+
+impl Jump<Offset> {
+    #[inline]
+    pub fn new(target: Offset) -> Self {
+        Jump { target: target - 3 }
+    }
+
+    #[inline]
+    pub fn target(&self) -> Offset {
+        self.target + 3
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, TryRead, TryWrite, Measure)]
+pub struct Conditional<Loc> {
+    false_label: Loc,
+    exit: Loc,
+}
+
+impl Conditional<Offset> {
+    #[inline]
+    pub fn new(false_label: Offset, exit: Offset) -> Self {
+        Conditional {
+            false_label: false_label - 3,
+            exit: exit - 5,
+        }
+    }
+
+    #[inline]
+    pub fn false_label(&self) -> Offset {
+        self.false_label + 3
+    }
+
+    #[inline]
+    pub fn exit(&self) -> Offset {
+        self.exit + 5
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, TryRead, TryWrite, Measure)]
+pub struct Switch<Loc> {
+    expr_type: TypeIndex,
+    first_case: Loc,
+}
+
+impl Switch<Offset> {
+    #[inline]
+    pub fn new(expr_type: TypeIndex, first_case: Offset) -> Self {
+        Switch {
+            expr_type,
+            first_case: first_case - 11,
+        }
+    }
+
+    #[inline]
+    pub fn first_case(&self) -> Offset {
+        self.first_case + 11
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, TryRead, TryWrite, Measure)]
+pub struct SwitchLabel<Loc> {
+    next_case: Loc,
+    body: Loc,
+}
+
+impl SwitchLabel<Offset> {
+    pub fn new(next_case: Offset, body: Offset) -> Self {
+        SwitchLabel {
+            next_case: next_case - 3,
+            body: body - 5,
+        }
+    }
+
+    pub fn next_case(&self) -> Offset {
+        self.next_case + 3
+    }
+
+    pub fn body(&self) -> Offset {
+        self.body + 5
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, TryRead, TryWrite, Measure)]
 pub struct Breakpoint {
     line: u16,
     line_start: u32,
@@ -364,7 +450,7 @@ pub struct Profile {
     enabled: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, TryRead, TryWrite, Measure)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, TryRead, TryWrite, Measure)]
 pub struct Offset {
     value: i16,
 }
@@ -373,5 +459,27 @@ impl From<Offset> for i16 {
     #[inline]
     fn from(offset: Offset) -> Self {
         offset.value
+    }
+}
+
+impl Add<i16> for Offset {
+    type Output = Self;
+
+    #[inline]
+    fn add(self, rhs: i16) -> Self::Output {
+        Offset {
+            value: self.value + rhs,
+        }
+    }
+}
+
+impl Sub<i16> for Offset {
+    type Output = Self;
+
+    #[inline]
+    fn sub(self, rhs: i16) -> Self::Output {
+        Offset {
+            value: self.value - rhs,
+        }
     }
 }

@@ -18,7 +18,7 @@ pub use index::{
     CNameIndex, ClassIndex, EnumIndex, EnumValueIndex, FieldIndex, FunctionIndex, LocalIndex,
     ParameterIndex, ResourceIndex, SourceFileIndex, StringIndex, TweakDbIndex, TypeIndex,
 };
-pub use instr::{Breakpoint, Instr, Profile};
+pub use instr::{Breakpoint, Conditional, Instr, Jump, Offset, Profile, Switch, SwitchLabel};
 
 #[cfg(not(feature = "shared"))]
 pub type Str<'a> = hipstr::LocalHipStr<'a>;
