@@ -462,6 +462,13 @@ impl From<Offset> for i16 {
     }
 }
 
+impl From<i16> for Offset {
+    #[inline]
+    fn from(value: i16) -> Self {
+        Offset { value }
+    }
+}
+
 impl Add<i16> for Offset {
     type Output = Self;
 
