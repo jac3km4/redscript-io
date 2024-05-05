@@ -11,8 +11,8 @@ const ENDIANESS: LittleEndian = byte::LE;
 pub use bundle::{BundleReader, ScriptBundle};
 pub use byte::{Error, Result};
 pub use definition::{
-    Class, ClassFlags, CodeIter, Definition, Enum, EnumMember, Field, FieldFlags, Function,
-    FunctionBody, FunctionFlags, Local, LocalFlags, Parameter, ParameterFlags, Property,
+    Class, ClassFlags, CodeIter, CowCodeIter, Definition, Enum, EnumMember, Field, FieldFlags,
+    Function, FunctionBody, FunctionFlags, Local, LocalFlags, Parameter, ParameterFlags, Property,
     SourceFile, SourceReference, Type, TypeKind, Visibility,
 };
 pub use index::{

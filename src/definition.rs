@@ -1150,8 +1150,16 @@ impl<'i> FunctionBody<'i> {
     }
 
     #[inline]
-    pub fn code(&self) -> CodeIter<'_> {
-        CodeIter::new(self)
+    pub fn code_iter(&self) -> CowCodeIter<'_> {
+        CowCodeIter::new(self)
+    }
+
+    #[inline]
+    pub fn code_owned(&self) -> byte::Result<Vec<Instr>> {
+        match self {
+            FunctionBody::Raw { .. } => self.code_iter().collect::<Result<Vec<_>, _>>(),
+            FunctionBody::Code(instructions) => Ok(instructions.clone()),
+        }
     }
 }
 
@@ -1223,38 +1231,32 @@ impl<Ctx: Copy> Measure<(Ctx, FunctionFlags)> for FunctionBody<'_> {
 }
 
 #[derive(Debug, Clone)]
-pub enum CodeIter<'a> {
+pub enum CowCodeIter<'a> {
     Raw {
-        bytes: &'a [u8],
+        offset: u32,
         max_offset: u32,
-        offset: u32,
+        bytes: &'a [u8],
     },
-    Code {
-        instructions: &'a [Instr],
-        offset: u32,
-    },
+    Code(CodeIter<'a>),
 }
 
-impl<'a> CodeIter<'a> {
+impl<'a> CowCodeIter<'a> {
     #[inline]
     fn new(body: &'a FunctionBody<'_>) -> Self {
         match body {
-            FunctionBody::Raw { bytes, max_offset } => CodeIter::Raw {
+            FunctionBody::Raw { bytes, max_offset } => CowCodeIter::Raw {
                 bytes,
                 max_offset: *max_offset,
                 offset: 0,
             },
-            FunctionBody::Code(instructions) => CodeIter::Code {
-                instructions,
-                offset: 0,
-            },
+            FunctionBody::Code(instructions) => CowCodeIter::Code(CodeIter::new(instructions)),
         }
     }
 
     #[inline]
     pub fn offset(&self) -> u32 {
         match self {
-            CodeIter::Raw { offset, .. } | CodeIter::Code { offset, .. } => *offset,
+            CowCodeIter::Raw { offset, .. } | CowCodeIter::Code(CodeIter { offset, .. }) => *offset,
         }
     }
 
@@ -1264,12 +1266,12 @@ impl<'a> CodeIter<'a> {
     }
 }
 
-impl<'a> Iterator for CodeIter<'a> {
+impl<'a> Iterator for CowCodeIter<'a> {
     type Item = byte::Result<Instr>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            CodeIter::Raw {
+            CowCodeIter::Raw {
                 bytes,
                 max_offset,
                 offset,
@@ -1286,20 +1288,49 @@ impl<'a> Iterator for CodeIter<'a> {
                     Err(err) => Some(Err(err)),
                 }
             }
-            CodeIter::Code {
-                instructions,
-                offset,
-            } => {
-                let (instr, rest) = instructions.split_first()?;
-                *instructions = rest;
-                *offset += u32::from(instr.size());
-                Some(Ok(instr.clone()))
-            }
+            CowCodeIter::Code(code) => Some(Ok(code.next()?.clone())),
         }
     }
 }
 
-impl iter::FusedIterator for CodeIter<'_> {}
+impl iter::FusedIterator for CowCodeIter<'_> {}
+
+#[derive(Debug, Clone)]
+pub struct CodeIter<'a> {
+    offset: u32,
+    instructions: &'a [Instr],
+}
+
+impl<'a> CodeIter<'a> {
+    #[inline]
+    pub fn new(instructions: &'a [Instr]) -> Self {
+        Self {
+            offset: 0,
+            instructions,
+        }
+    }
+
+    #[inline]
+    pub fn offset(&self) -> u32 {
+        self.offset
+    }
+
+    #[inline]
+    pub fn with_offsets(mut self) -> impl Iterator<Item = (u32, &'a Instr)> {
+        iter::from_fn(move || Some((self.offset(), self.next()?)))
+    }
+}
+
+impl<'a> Iterator for CodeIter<'a> {
+    type Item = &'a Instr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (instr, rest) = self.instructions.split_first()?;
+        self.instructions = rest;
+        self.offset += u32::from(instr.size());
+        Some(instr)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, TryRead, TryWrite, Measure)]
 pub struct Property<'i> {
