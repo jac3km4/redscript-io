@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use std::{iter, mem, ops};
+use std::{fmt, iter, mem, ops};
 
 use bitfield_struct::bitfield;
 use byte::ctx::{Delimiter, Endianess, LittleEndian};
@@ -8,7 +8,7 @@ use indexmap::map::RawEntryApiV1;
 use indexmap::{IndexMap, IndexSet};
 
 use crate::definition::{
-    Class, DefVariant, Definition, DefinitionHeader, Enum, EnumMember, Field, Function, Local,
+    Class, Definition, DefinitionHeader, DefinitionIndex, Enum, EnumMember, Field, Function, Local,
     Parameter, SourceFile, Type,
 };
 use crate::index::{
@@ -177,29 +177,50 @@ impl<'i> ScriptBundle<'i> {
         }
     }
 
+    #[inline]
     pub fn cnames_mut(&mut self) -> &mut StringPool<'i, index::types::CName> {
         &mut self.cnames
     }
 
+    #[inline]
     pub fn tdb_ids_mut(&mut self) -> &mut StringPool<'i, index::types::TweakDbId> {
         &mut self.tdb_ids
     }
 
+    #[inline]
     pub fn resources_mut(&mut self) -> &mut StringPool<'i, index::types::Resource> {
         &mut self.resources
     }
 
+    #[inline]
     pub fn strings_mut(&mut self) -> &mut StringPool<'i, index::types::String> {
         &mut self.strings
     }
 
+    #[inline]
+    pub fn get_item<I>(&self, index: I) -> Option<&I::Output>
+    where
+        I: PoolItem<'i>,
+    {
+        index.get(self)
+    }
+
+    #[inline]
+    pub fn get_item_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
+    where
+        I: PoolItemMut<'i>,
+    {
+        index.get_mut(self)
+    }
+
+    #[inline]
     pub fn definitions(&self) -> impl Iterator<Item = &Definition<'i>> {
         self.definitions.iter()
     }
 
     pub fn define<A>(&mut self, def: A) -> NzPoolIndex<A::Index>
     where
-        A: DefVariant<'i>,
+        A: DefinitionIndex<'i>,
     {
         let index = self.definitions.len() as u32;
         self.definitions.push(def.into());
@@ -219,61 +240,104 @@ impl Default for ScriptBundle<'_> {
     }
 }
 
-macro_rules! impl_string_index {
+pub trait PoolItem<'i> {
+    type Output: ?Sized;
+
+    fn get<'a>(self, bundle: &'a ScriptBundle<'i>) -> Option<&'a Self::Output>;
+}
+
+pub trait PoolItemMut<'i>: PoolItem<'i> {
+    fn get_mut<'a>(self, bundle: &'a mut ScriptBundle<'i>) -> Option<&'a mut Self::Output>;
+}
+
+macro_rules! impl_string_item {
     ($ty:ty, $name:ident) => {
-        impl ops::Index<$ty> for ScriptBundle<'_> {
+        impl<'i> PoolItem<'i> for $ty {
             type Output = str;
 
-            fn index(&self, index: $ty) -> &Self::Output {
-                self.$name
+            fn get<'a>(self, bundle: &'a ScriptBundle<'_>) -> Option<&'a Self::Output> {
+                bundle
+                    .$name
                     .strings
-                    .get_index(u32::from(index) as _)
-                    .expect("unresolved string index")
+                    .get_index(u32::from(self) as _)
+                    .map(Str::as_str)
             }
         }
     };
 }
 
-impl_string_index!(CNameIndex, cnames);
-impl_string_index!(TweakDbIndex, tdb_ids);
-impl_string_index!(ResourceIndex, resources);
-impl_string_index!(StringIndex, strings);
+impl_string_item!(CNameIndex, cnames);
+impl_string_item!(TweakDbIndex, tdb_ids);
+impl_string_item!(ResourceIndex, resources);
+impl_string_item!(StringIndex, strings);
 
-macro_rules! impl_def_index {
+macro_rules! impl_def_item {
     ($idx:ty, $ty:ident[$($lt:lifetime),*]) => {
-        impl<'a> ops::Index<$idx> for ScriptBundle<'a> {
+        impl<'i> PoolItem<'i> for $idx {
             type Output = $ty<$($lt),*>;
 
-            fn index(&self, index: $idx) -> &Self::Output {
-                if let Some(Definition::$ty(val)) = self.definitions.get(u32::from(index) as usize) {
-                    val
+            fn get<'a>(self, bundle: &'a ScriptBundle<'i>) -> Option<&'a Self::Output> {
+                if let Some(Definition::$ty(val)) = bundle.definitions.get(u32::from(self) as usize) {
+                    Some(val)
                 } else {
-                    panic!("unresolved index {index} for {}", stringify!($ty))
+                    None
                 }
             }
         }
 
-        impl<'a> ops::IndexMut<$idx> for ScriptBundle<'a> {
-            fn index_mut(&mut self, index: $idx) -> &mut Self::Output {
-                if let Some(Definition::$ty(val)) = self.definitions.get_mut(u32::from(index) as usize) {
-                    val
+        impl<'i> PoolItemMut<'i> for $idx {
+            fn get_mut<'a>(self, bundle: &'a mut ScriptBundle<'i>) -> Option<&'a mut Self::Output> {
+                if let Some(Definition::$ty(val)) = bundle.definitions.get_mut(u32::from(self) as usize) {
+                    Some(val)
                 } else {
-                    panic!("unresolved index {index} for {}", stringify!($ty))
+                    None
                 }
             }
         }
     };
 }
 
-impl_def_index!(TypeIndex, Type[]);
-impl_def_index!(ClassIndex, Class[]);
-impl_def_index!(EnumValueIndex, EnumMember[]);
-impl_def_index!(EnumIndex, Enum[]);
-impl_def_index!(FunctionIndex, Function['a]);
-impl_def_index!(ParameterIndex, Parameter[]);
-impl_def_index!(LocalIndex, Local[]);
-impl_def_index!(FieldIndex, Field['a]);
-impl_def_index!(SourceFileIndex, SourceFile['a]);
+impl_def_item!(TypeIndex, Type[]);
+impl_def_item!(ClassIndex, Class[]);
+impl_def_item!(EnumValueIndex, EnumMember[]);
+impl_def_item!(EnumIndex, Enum[]);
+impl_def_item!(FunctionIndex, Function['i]);
+impl_def_item!(ParameterIndex, Parameter[]);
+impl_def_item!(LocalIndex, Local[]);
+impl_def_item!(FieldIndex, Field['i]);
+impl_def_item!(SourceFileIndex, SourceFile['i]);
+
+impl<'i, I> ops::Index<I> for ScriptBundle<'i>
+where
+    I: PoolItem<'i> + fmt::Display + Copy,
+{
+    type Output = I::Output;
+
+    fn index(&self, index: I) -> &Self::Output {
+        match I::get(index, self) {
+            Some(val) => val,
+            None => panic!(
+                "unresolved {} index: {index}",
+                std::any::type_name::<I::Output>()
+            ),
+        }
+    }
+}
+
+impl<'i, I> ops::IndexMut<I> for ScriptBundle<'i>
+where
+    I: PoolItemMut<'i> + fmt::Display + Copy,
+{
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        match I::get_mut(index, self) {
+            Some(val) => val,
+            None => panic!(
+                "unresolved {} index: {index}",
+                std::any::type_name::<I::Output>()
+            ),
+        }
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct StringPool<'i, A> {

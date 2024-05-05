@@ -1367,42 +1367,42 @@ pub enum Visibility {
     Private,
 }
 
-pub trait DefVariant<'i>: Into<Definition<'i>> {
+pub trait DefinitionIndex<'i>: Into<Definition<'i>> {
     type Index;
 }
 
-impl DefVariant<'_> for Type {
+impl DefinitionIndex<'_> for Type {
     type Index = index::types::Type;
 }
 
-impl DefVariant<'_> for Class {
+impl DefinitionIndex<'_> for Class {
     type Index = index::types::Class;
 }
 
-impl DefVariant<'_> for EnumMember {
+impl DefinitionIndex<'_> for EnumMember {
     type Index = index::types::EnumValue;
 }
 
-impl DefVariant<'_> for Enum {
+impl DefinitionIndex<'_> for Enum {
     type Index = index::types::Enum;
 }
 
-impl<'i> DefVariant<'i> for Function<'i> {
+impl<'i> DefinitionIndex<'i> for Function<'i> {
     type Index = index::types::Function;
 }
 
-impl DefVariant<'_> for Parameter {
+impl DefinitionIndex<'_> for Parameter {
     type Index = index::types::Parameter;
 }
 
-impl DefVariant<'_> for Local {
+impl DefinitionIndex<'_> for Local {
     type Index = index::types::Local;
 }
 
-impl<'i> DefVariant<'i> for Field<'i> {
+impl<'i> DefinitionIndex<'i> for Field<'i> {
     type Index = index::types::Field;
 }
 
-impl<'i> DefVariant<'i> for SourceFile<'i> {
+impl<'i> DefinitionIndex<'i> for SourceFile<'i> {
     type Index = index::types::SourceFile;
 }
