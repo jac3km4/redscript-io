@@ -1319,6 +1319,11 @@ impl<'a> CodeIter<'a> {
     pub fn with_offsets(mut self) -> impl Iterator<Item = (u32, &'a Instr)> {
         iter::from_fn(move || Some((self.offset(), self.next()?)))
     }
+
+    #[inline]
+    pub fn as_slice(&self) -> &'a [Instr] {
+        self.instructions
+    }
 }
 
 impl<'a> Iterator for CodeIter<'a> {
