@@ -85,7 +85,7 @@ pub enum Instr<Loc = Offset> {
     #[byte(tag = 0x22)]
     Conditional(Conditional<Loc>),
     #[byte(tag = 0x23)]
-    Construct { arg_count: u8, type_: TypeIndex },
+    Construct { arg_count: u8, class: ClassIndex },
     #[byte(tag = 0x24)]
     InvokeStatic {
         exit: Jump<Loc>,
