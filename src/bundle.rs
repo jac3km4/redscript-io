@@ -200,7 +200,7 @@ impl<'i> ScriptBundle<'i> {
     #[inline]
     pub fn get_item<I>(&self, index: I) -> Option<&I::Output>
     where
-        I: PoolItem<'i>,
+        I: PoolItemIndex<'i>,
     {
         index.get(self)
     }
@@ -208,7 +208,7 @@ impl<'i> ScriptBundle<'i> {
     #[inline]
     pub fn get_item_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
     where
-        I: PoolItemMut<'i>,
+        I: PoolItemIndexMut<'i>,
     {
         index.get_mut(self)
     }
@@ -240,19 +240,19 @@ impl Default for ScriptBundle<'_> {
     }
 }
 
-pub trait PoolItem<'i> {
+pub trait PoolItemIndex<'i> {
     type Output: ?Sized;
 
     fn get<'a>(self, bundle: &'a ScriptBundle<'i>) -> Option<&'a Self::Output>;
 }
 
-pub trait PoolItemMut<'i>: PoolItem<'i> {
+pub trait PoolItemIndexMut<'i>: PoolItemIndex<'i> {
     fn get_mut<'a>(self, bundle: &'a mut ScriptBundle<'i>) -> Option<&'a mut Self::Output>;
 }
 
 macro_rules! impl_string_item {
     ($ty:ty, $name:ident) => {
-        impl<'i> PoolItem<'i> for $ty {
+        impl<'i> PoolItemIndex<'i> for $ty {
             type Output = str;
 
             fn get<'a>(self, bundle: &'a ScriptBundle<'_>) -> Option<&'a Self::Output> {
@@ -273,7 +273,7 @@ impl_string_item!(StringIndex, strings);
 
 macro_rules! impl_def_item {
     ($idx:ty, $ty:ident[$($lt:lifetime),*]) => {
-        impl<'i> PoolItem<'i> for $idx {
+        impl<'i> PoolItemIndex<'i> for $idx {
             type Output = $ty<$($lt),*>;
 
             fn get<'a>(self, bundle: &'a ScriptBundle<'i>) -> Option<&'a Self::Output> {
@@ -285,7 +285,7 @@ macro_rules! impl_def_item {
             }
         }
 
-        impl<'i> PoolItemMut<'i> for $idx {
+        impl<'i> PoolItemIndexMut<'i> for $idx {
             fn get_mut<'a>(self, bundle: &'a mut ScriptBundle<'i>) -> Option<&'a mut Self::Output> {
                 if let Some(Definition::$ty(val)) = bundle.definitions.get_mut(u32::from(self) as usize) {
                     Some(val)
@@ -309,7 +309,7 @@ impl_def_item!(SourceFileIndex, SourceFile['i]);
 
 impl<'i, I> ops::Index<I> for ScriptBundle<'i>
 where
-    I: PoolItem<'i> + fmt::Display + Copy,
+    I: PoolItemIndex<'i> + fmt::Display + Copy,
 {
     type Output = I::Output;
 
@@ -326,7 +326,7 @@ where
 
 impl<'i, I> ops::IndexMut<I> for ScriptBundle<'i>
 where
-    I: PoolItemMut<'i> + fmt::Display + Copy,
+    I: PoolItemIndexMut<'i> + fmt::Display + Copy,
 {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         match I::get_mut(index, self) {

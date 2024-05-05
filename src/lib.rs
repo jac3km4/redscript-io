@@ -8,7 +8,7 @@ mod util;
 
 const ENDIANESS: LittleEndian = byte::LE;
 
-pub use bundle::{BundleReader, ScriptBundle};
+pub use bundle::{BundleReader, PoolItemIndex, PoolItemIndexMut, ScriptBundle};
 pub use byte::{Error, Result};
 pub use definition::{
     Class, ClassFlags, CodeIter, CowCodeIter, Definition, Enum, EnumMember, Field, FieldFlags,
