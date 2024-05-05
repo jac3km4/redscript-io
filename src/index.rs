@@ -57,6 +57,20 @@ impl<A> PartialEq for PoolIndex<A> {
 
 impl<A> Eq for PoolIndex<A> {}
 
+impl<A> PartialOrd for PoolIndex<A> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<A> Ord for PoolIndex<A> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
 impl<A> Hash for PoolIndex<A> {
     #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -142,6 +156,20 @@ impl<A> PartialEq for NzPoolIndex<A> {
 }
 
 impl<A> Eq for NzPoolIndex<A> {}
+
+impl<A> PartialOrd for NzPoolIndex<A> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<A> Ord for NzPoolIndex<A> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
 
 impl<A> Hash for NzPoolIndex<A> {
     #[inline]
